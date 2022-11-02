@@ -63,7 +63,7 @@ namespace GCScriptForRiocard.Automation
 
                 if (downloadItem.IsComplete)
                 {
-                    MessageBox.Show($"Download concluído com sucesso!", "Result", MessageBoxButtons.OK, MessageBoxIcon.Information, MessageBoxDefaultButton.Button1);
+                    //MessageBox.Show($"Download concluído com sucesso!", "Result", MessageBoxButtons.OK, MessageBoxIcon.Information, MessageBoxDefaultButton.Button1);
                 }
             }
         }

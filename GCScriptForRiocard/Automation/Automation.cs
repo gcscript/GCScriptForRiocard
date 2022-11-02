@@ -33,7 +33,7 @@ namespace GCScriptForRiocard.Automation
             else if (url.Contains("IniciarEntregaPedido.do")) await IniciarEntregaPedido();
             else if (url.Contains("IniciarFechamentoPedido.do")) await IniciarFechamentoPedido();
             else if (url.Contains("IniciarPagamentoPedido.do")) await IniciarPagamentoPedido();
-            else if (url.Contains("RealizaPagamentoPedido.do")) await RealizaPagamentoPedido();
+            else if (url.Contains("RealizaPagamentoPedido.do")) await RealizaPagamentoPedido("ALPHA", Settings.purchaseDirectory);
         }
 
         private async Task ImportacaoPedido()
@@ -87,43 +87,62 @@ namespace GCScriptForRiocard.Automation
             }
         }
 
-        private async Task RealizaPagamentoPedido()
+        private async Task RealizaPagamentoPedido(string fileName, string fileDirectory)
         {
             await Task.Delay(1000);
 
-            string script = "(function() { let el = document.querySelectorAll('a'); let nrPed1; let nrPed2; for (let i = 0; i < el.length; i++) { if (el[i].href.includes('UltimaEtapaPedido')) { nrPed1 = el[i].href.match(/nrPedido=([0-9]{8})/)[1]; } else if (el[i].href.includes('IniciarPagamentoPedido')) { nrPed2 = el[i].href.match(/nrPedido=([0-9]{8})/)[1]; } } return JSON.stringify({nrPedido1: nrPed1, nrPedido2: nrPed2}); })();";
+            string script = "(function() { let el = document.querySelectorAll('a'); let nrPed1; let nrPed2; for (let i = 0; i < el.length; i++) { if (el[i].href.includes('ImpressaoPedido')) { nrPed1 = el[i].href.match(/nrPedido=([0-9]{8})/)[1]; } else if (el[i].href.includes('IniciarPagamentoPedido')) { nrPed2 = el[i].href.match(/nrPedido=([0-9]{8})/)[1]; } } return JSON.stringify({nrPedido1: nrPed1, nrPedido2: nrPed2}); })();";
             var response = await _browser.EvaluateScriptAsync(script);
 
             if (!response.Success) return;
 
+            var json = JsonSerializer.Deserialize<RealizaPagamentoPedido>(response.Result.ToString());
 
-            var source = cl_Tools.TreatText(await _browser.GetSourceAsync());
-            var match = Regex.Match(source, @"NRPEDIDO=([0-9]{8})");
+            if (json.nrPedido1 is null && json.nrPedido2 is null)
+            {
+                MessageBox.Show($"Erro ao Capturar o Numero do Pedido", "E_614651", MessageBoxButtons.OK, MessageBoxIcon.Error, MessageBoxDefaultButton.Button1); return;
+            }
 
-            if (!match.Success) { MessageBox.Show($"Erro ao Capturar o Numero do Pedido", "E_614651", MessageBoxButtons.OK, MessageBoxIcon.Error, MessageBoxDefaultButton.Button1); return; }
+            if (json.nrPedido1 is not null)
+            {
+                await BaixarResumo(json.nrPedido1, fileName, fileDirectory, false);
+                await Task.Delay(1000);
+                await BaixarBoleto(json.nrPedido1, fileName, fileDirectory, false);
+            }
+            await Task.Delay(1000);
+            if (json.nrPedido2 is not null)
+            {
+                await BaixarResumo(json.nrPedido2, fileName, fileDirectory);
+                await Task.Delay(1000);
+                await BaixarBoleto(json.nrPedido2, fileName, fileDirectory);
+            }
 
-            string result = match.Groups[1].Value;
+            await Task.Delay(1000);
+            await _browser.LoadUrlAsync($"https://www.cartaoriocard.com.br/vt2/comprador/pedidos/GerenciamentoPedidos.do");
+        }
 
-            if (result == "") { MessageBox.Show($"Número do pedido não encontrado!", "E_113949", MessageBoxButtons.OK, MessageBoxIcon.Error, MessageBoxDefaultButton.Button1); }
-            await _browser.LoadUrlAsync($"https://www.cartaoriocard.com.br/vt2/comprador/pedidos/ImpressaoPedido.do?nrPedido={result}");
+        private async Task BaixarResumo(string nrPedido, string fileName, string fileDirectory, bool Novo = true)
+        {
+            var Resumo = Novo is false ? $"RJ - RIOCARD - {fileName} - Resumo.pdf" : $"RJ - RIOCARD - {fileName} - Resumo [NOVO-SEM CARTAO].pdf";
+            await _browser.LoadUrlAsync($"https://www.cartaoriocard.com.br/vt2/comprador/pedidos/ImpressaoPedido.do?nrPedido={nrPedido}");
+            await _browser.PrintToPdfAsync(Path.Combine(fileDirectory, Resumo));
+        }
 
-            await _browser.PrintToPdfAsync(Path.Combine(Settings.purchaseDirectory, "RJ - RIOCARD - ADM - Resumo.pdf"));
+        private async Task BaixarBoleto(string nrPedido, string fileName, string fileDirectory, bool Novo = false)
+        {
+            var Boleto = Novo is false ? $"RJ - RIOCARD - {fileName} - Boleto.pdf" : $"RJ - RIOCARD - {fileName} - Boleto [NOVO-SEM CARTAO].pdf";
 
-            var urlBoleto = $"https://www.cartaoriocard.com.br/vt2/comprador/pedidos/UltimaEtapaPedido.do?nrPedido={result}";
-
+            var urlBoleto = $"https://www.cartaoriocard.com.br/vt2/comprador/pedidos/UltimaEtapaPedido.do?nrPedido={nrPedido}";
             await _browser.LoadUrlAsync(urlBoleto);
-
             var ds = new DownloadSettings
             {
                 ShowDialog = false,
-                Directory = Settings.purchaseDirectory,
-                FileName = $"RJ - RIOCARD - ADM - Boleto.pdf",
+                Directory = fileDirectory,
+                FileName = Boleto
             };
 
             _browser.DownloadHandler = new CustomDownloadHandler(ds);
             _browser.StartDownload(urlBoleto);
-            //MessageBox.Show($"Resumo Salvo com Sucesso!", "Result", MessageBoxButtons.OK, MessageBoxIcon.Information, MessageBoxDefaultButton.Button1);
-            //MessageBox.Show($"  asdadsads", "Result", MessageBoxButtons.OK, MessageBoxIcon.Information, MessageBoxDefaultButton.Button1);
         }
 
         private async Task GerenciamentoPedidos()
