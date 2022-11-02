@@ -9,11 +9,15 @@ using System.Web;
 using GCScriptForRiocard.Automation;
 using GCScriptForRiocard;
 using GCScriptForRiocard.Data;
+using GCScriptForRiocard.Models;
+using DocumentFormat.OpenXml.Spreadsheet;
 
 namespace RiocardTools
 {
+
     public partial class frm_Main : Form
     {
+        public List<ListarUsuario> listOfMultipleUsers { get; set; } = new List<ListarUsuario>();
         private readonly ListViewColumnSorter lvwColumnSorter;
 
         public frm_Main()
@@ -358,6 +362,7 @@ namespace RiocardTools
         private async void SideBar_SearchUsers_btn_Search_Click(object sender, EventArgs e)
         {
             if (lstv_SearchUsers.Items.Count == 0) { return; }
+            listOfMultipleUsers.Clear();
 
             List<Button> buttons = new() { SideBar_SearchUsers_btn_PasteID, SideBar_SearchUsers_btn_PasteName, SideBar_SearchUsers_btn_PasteCPF, SideBar_SearchUsers_btn_Search, SideBar_SearchUsers_btn_PasteSave };
 
@@ -366,18 +371,8 @@ namespace RiocardTools
                 cl_Tools.DesableButtons(buttons);
                 if (lstv_SearchUsers.Items.Count == 0) { return; }
 
-                //cl_Tools.AdjustColumnWidthInListView(lstv_Main, new int[] { 3 }, 92);
-
-                //int countBalance = 0;
-                //int countError = 0;
-                //progressBar.Maximum = lstv_Main.Items.Count;
-
                 foreach (ListViewItem item in lstv_SearchUsers.Items)
                 {
-                    //#region TREAT DATA
-                    //string cpf = cl_Tools.FormatCPF2(item.SubItems[1].Text);
-                    //string cardNumber = Regex.Replace(Regex.Replace(item.SubItems[2].Text, @"[^\d]", ""), @"^0+", "");
-                    //#endregion
                     string itemSearch = "";
 
                     if (Settings.searchUserMode == 1)
@@ -409,10 +404,9 @@ namespace RiocardTools
                     LoadUrlAsyncResponse page = await wbs_Browser.LoadUrlAsync(url);
 
 
-                    //string script = "(function(){let table=document.querySelector('#listUsuariosTable');let rows=table.querySelectorAll('tr');let data=[];for(let i=1;i<rows.length;i++){let row=rows[i];let cols=row.querySelectorAll('td');let colsData=[];for(let j=0;j<cols.length;j++){let col=cols[j];colsData.push(col.innerText)}data.push(colsData)}return JSON.stringify(data)})();";
                     await Task.Delay(Settings.searchDelay);
-                    
-                    string script = "!function(){let e=document.querySelector('#listUsuariosTable').querySelectorAll('tr'),t=[];for(let r=1;r<e.length;r++){let n=e[r].querySelectorAll('td');t.push({Matricula:n[0].innerText,Nome:n[1].innerText,Cpf:n[2].innerText,Status:n[3].innerText,NrDoCartao:n[4].innerText,StatusBu:n[5].innerText,Pir:n[6].innerText})}JSON.stringify(t)}();";
+
+                    string script = "(function () { let table = document.querySelector('#listUsuariosTable'); let rows = table.querySelectorAll('tr'); let data = []; for (let i = 1; i < rows.length; i++) { let row = rows[i]; let cols = row.querySelectorAll('td'); data.push({ 'Matricula': cols[0].innerText, 'Nome': cols[1].innerText, 'Cpf': cols[2].innerText, 'Status': cols[3].innerText, 'NrDoCartao': cols[4].innerText, 'StatusBu': cols[5].innerText, 'Pir': cols[6].innerText }); } return JSON.stringify(data) })();";
                     JavascriptResponse response = await wbs_Browser.EvaluateScriptAsync(script);
 
                     if (!response.Success)
@@ -437,45 +431,34 @@ namespace RiocardTools
                         continue;
                     }
 
-                    dynamic obj = response.Result;
+                    var json = JsonSerializer.Deserialize<List<ListarUsuario>>(response.Result.ToString());
 
-                    if (obj.Count == 1)
+                    if (json.Count == 1)
                     {
-                        foreach (var dados in obj)
-                        {
-                            item.SubItems[0].Text = dados[0].ToString(); // MAT
-                            item.SubItems[1].Text = dados[1].ToString(); // NOME
-                            item.SubItems[2].Text = dados[2].ToString(); // CPF
-                            item.SubItems[3].Text = dados[3].ToString(); // STATUS
-                            item.SubItems[4].Text = dados[4].ToString(); // CARTAO
-                            item.SubItems[5].Text = dados[5].ToString(); // BU
-                            item.SubItems[6].Text = dados[6].ToString(); // PIR
-                            item.SubItems[7].Text = ""; // OBS
-                            item.SubItems[8].Text = DateTime.Now.ToString(); // DATE
-                        }
+                        item.SubItems[0].Text = json[0].Matricula;
+                        item.SubItems[1].Text = json[0].Nome;
+                        item.SubItems[2].Text = json[0].Cpf;
+                        item.SubItems[3].Text = json[0].Status;
+                        item.SubItems[4].Text = json[0].NrDoCartao;
+                        item.SubItems[5].Text = json[0].StatusBu;
+                        item.SubItems[6].Text = json[0].Pir;
+                        item.SubItems[7].Text = ""; // OBS
+                        item.SubItems[8].Text = DateTime.Now.ToString("g");
                     }
                     else
                     {
-                        item.SubItems[7].Text = $"{obj.Count.ToString()} RESULTADOS";
-                        item.SubItems[8].Text = DateTime.Now.ToString(); // DATE
+                        item.SubItems[7].Text = $"{json.Count} RESULTADOS";
+                        item.SubItems[8].Text = DateTime.Now.ToString("g"); // DATE
+
+                        foreach (var user in json)
+                        {
+                            listOfMultipleUsers.Add(user);
+                        }
+
                         continue;
                     }
-
-
-                    //item.SubItems[3].Text = cl_Tools.ConvertCentsInReal(json.SaldoAtualEmCentavos.ToString());
-                    //item.SubItems[4].Text = DateTime.Now.ToString();
-                    //countBalance++;
-
-                    //lbl_countBalance.Text = countBalance.ToString();
-                    //lbl_countError.Text = countError.ToString();
-                    //progressBar.Value = countBalance;
-                    //lbl_percentage.Text = $"{progressBar.Value * 100 / progressBar.Maximum}%";
-                    //await Task.Delay(cl_Settings_PR_METROCARD.delay);
                 }
-
-                //SortDataInListView(lstv_Main, new int[] { 2, 1, 0 });
                 cl_Tools.AdjustColumnWidthInListView(lstv_SearchUsers);
-                //cl_Alert.Alert("Saldos carregados!", frm_Alert.enmType.Success);
             }
             catch (Exception)
             {
@@ -1253,7 +1236,7 @@ namespace RiocardTools
                     Data = item.SubItems[8].Text,
                 };
 
-                frm_UserInfo frm = new(user);
+                frm_UserInfo frm = new(user, listOfMultipleUsers);
                 frm.ShowDialog();
             }
         }

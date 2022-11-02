@@ -1,8 +1,7 @@
-﻿namespace GCScriptForRiocard.Models
+﻿namespace GCScriptForRiocard.Models;
+
+class Coordinates
 {
-    class Coordinates
-    {
-        public double x { get; set; }
-        public double y { get; set; }
-    }
+    public double x { get; set; }
+    public double y { get; set; }
 }
