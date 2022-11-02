@@ -9,6 +9,8 @@ namespace GCScriptForRiocard
     public static class Settings
     {
         public static int delay = 300;
+        public static int automationDelay = 300;
+        public static int searchDelay = 300;
         public static bool autoReload = true;
         public static int searchUserFilter = 1;
         public static int searchUserMode = 1;

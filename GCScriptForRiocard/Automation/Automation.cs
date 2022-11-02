@@ -23,8 +23,8 @@ namespace GCScriptForRiocard.Automation
 
         public async Task Start(string url)
         {
-            if (url.Contains("PesquisarUsuario.do")) PesquisarUsuario();
-            else if (url.Contains("UploadImportacaoPedido.do")) await UploadImportacaoPedido();
+            if (url.Contains("UploadImportacaoPedido.do")) await UploadImportacaoPedido();
+            //else if (url.Contains("PesquisarUsuario.do")) PesquisarUsuario();
             //else if (url.Contains("ListaRelacaoCartoes.do")) ListaRelacaoCartoes();
             else if (url.Contains("ImportarUsuarios.do")) await ImportarUsuarios();
             else if (url.Contains("ImportacaoPedido.do")) await ImportacaoPedido();
@@ -38,12 +38,12 @@ namespace GCScriptForRiocard.Automation
 
         private async Task ImportacaoPedido()
         {
-            string pedPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "ped.txt");
+            string pedPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "pedGUSTAVO.txt");
             if (File.Exists(pedPath))
             {
                 try
                 {
-                    await Task.Delay(1000);
+                    await Task.Delay(Settings.automationDelay);
                     _browser.DialogHandler = new CustomFileDialogHandler(new List<string> { pedPath });
                     string script = "(function() { let element = document.querySelector('input[type=file]'); let el = element.getBoundingClientRect(); return JSON.stringify({x: el.left, y: el.top}); })();";
                     var response = await _browser.EvaluateScriptAsync(script);
@@ -55,7 +55,7 @@ namespace GCScriptForRiocard.Automation
                     int positionX = (int)json.x + 10;
                     int positionY = (int)json.y + 10;
 
-                    await Task.Delay(1000);
+                    await Task.Delay(Settings.automationDelay);
                     _browser.GetBrowser()
                             .GetHost()
                             .SendMouseClickEvent(x: positionX,
@@ -76,7 +76,7 @@ namespace GCScriptForRiocard.Automation
                                                  clickCount: 1,
                                                  modifiers: CefEventFlags.None);
 
-                    await Task.Delay(1000);
+                    await Task.Delay(Settings.automationDelay);
                     string script2 = "submeterForm()";
                     var response2 = await _browser.EvaluateScriptAsync(script2);
                 }
@@ -89,7 +89,7 @@ namespace GCScriptForRiocard.Automation
 
         private async Task RealizaPagamentoPedido(string fileName, string fileDirectory)
         {
-            await Task.Delay(1000);
+            await Task.Delay(Settings.automationDelay);
 
             string script = "(function() { let el = document.querySelectorAll('a'); let nrPed1; let nrPed2; for (let i = 0; i < el.length; i++) { if (el[i].href.includes('ImpressaoPedido')) { nrPed1 = el[i].href.match(/nrPedido=([0-9]{8})/)[1]; } else if (el[i].href.includes('IniciarPagamentoPedido')) { nrPed2 = el[i].href.match(/nrPedido=([0-9]{8})/)[1]; } } return JSON.stringify({nrPedido1: nrPed1, nrPedido2: nrPed2}); })();";
             var response = await _browser.EvaluateScriptAsync(script);
@@ -106,18 +106,20 @@ namespace GCScriptForRiocard.Automation
             if (json.nrPedido1 is not null)
             {
                 await BaixarResumo(json.nrPedido1, fileName, fileDirectory, false);
-                await Task.Delay(1000);
+                await Task.Delay(Settings.automationDelay);
                 await BaixarBoleto(json.nrPedido1, fileName, fileDirectory, false);
             }
-            await Task.Delay(1000);
+
+            await Task.Delay(Settings.automationDelay);
+
             if (json.nrPedido2 is not null)
             {
                 await BaixarResumo(json.nrPedido2, fileName, fileDirectory);
-                await Task.Delay(1000);
+                await Task.Delay(Settings.automationDelay);
                 await BaixarBoleto(json.nrPedido2, fileName, fileDirectory);
             }
 
-            await Task.Delay(1000);
+            await Task.Delay(Settings.automationDelay);
             await _browser.LoadUrlAsync($"https://www.cartaoriocard.com.br/vt2/comprador/pedidos/GerenciamentoPedidos.do");
         }
 
@@ -128,25 +130,27 @@ namespace GCScriptForRiocard.Automation
             await _browser.PrintToPdfAsync(Path.Combine(fileDirectory, Resumo));
         }
 
-        private async Task BaixarBoleto(string nrPedido, string fileName, string fileDirectory, bool Novo = false)
+        private async Task BaixarBoleto(string nrPedido, string fileName, string fileDirectory, bool Novo = true)
         {
             var Boleto = Novo is false ? $"RJ - RIOCARD - {fileName} - Boleto.pdf" : $"RJ - RIOCARD - {fileName} - Boleto [NOVO-SEM CARTAO].pdf";
 
             var urlBoleto = $"https://www.cartaoriocard.com.br/vt2/comprador/pedidos/UltimaEtapaPedido.do?nrPedido={nrPedido}";
             await _browser.LoadUrlAsync(urlBoleto);
-            var ds = new DownloadSettings
+
+            var ds = new DownloadSettings()
             {
                 ShowDialog = false,
                 Directory = fileDirectory,
                 FileName = Boleto
             };
 
-            _browser.DownloadHandler = new CustomDownloadHandler(ds);
+            _browser.DownloadHandler = new CustomDownloadHandler(ds, Settings.percentLabel);
             _browser.StartDownload(urlBoleto);
         }
 
         private async Task GerenciamentoPedidos()
         {
+            await Task.Delay(Settings.automationDelay);
             string script = "setTimeout((function(){document.documentElement.innerHTML.toUpperCase().indexOf('EM PROCESSO DE IMPORTAÇÃO')>-1&&location.reload()}),1e3);";
             await _browser.EvaluateScriptAsync(script);
         }
@@ -160,12 +164,14 @@ namespace GCScriptForRiocard.Automation
 
         private async Task ImportarUsuarios()
         {
+            await Task.Delay(Settings.automationDelay);
             string script = "document.getElementById('aceitoTermoComodato').checked=!0;";
             await _browser.EvaluateScriptAsync(script);
         }
 
         private async Task IniciarEntregaPedido()
         {
+            await Task.Delay(Settings.automationDelay);
             var source = cl_Tools.TreatText(await _browser.GetSourceAsync());
 
             if (source.Contains("EXISTEM ERROS NA PAGINA"))
@@ -187,6 +193,7 @@ namespace GCScriptForRiocard.Automation
 
         private async Task IniciarFechamentoPedido()
         {
+            await Task.Delay(Settings.automationDelay);
             var source = cl_Tools.TreatText(await _browser.GetSourceAsync());
 
             if (source.Contains("SHOWDIALOGDIVIDIRPEDIDO('FALSE')"))
@@ -194,12 +201,27 @@ namespace GCScriptForRiocard.Automation
                 string script = "showDialogDividirPedido('false')";
                 await _browser.EvaluateScriptAsync(script);
             }
+            else if (source.Contains("SHOWDIALOGDIVIDIRPEDIDO('TRUE')"))
+            {
+                string script = "showDialogDividirPedido('true')";
+                await _browser.EvaluateScriptAsync(script);
+            }
+            else
+            {
+                MessageBox.Show($"Erro em encontrar [showDialogDividirPedido]", "E_925341", MessageBoxButtons.OK, MessageBoxIcon.Error, MessageBoxDefaultButton.Button1);
+            }
         }
 
         private async Task IniciarPagamentoPedido()
         {
-            string script = "setTimeout((function(){document.getElementById('escolhidoBoleto').click(),document.getElementById('finalizarPagamentoForm').submit()}),300);";
+            await Task.Delay(Settings.automationDelay);
+            string script = "document.getElementById('escolhidoBoleto').click();";
             await _browser.EvaluateScriptAsync(script);
+
+            await Task.Delay(Settings.automationDelay);
+
+            string script2 = "document.getElementById('finalizarPagamentoForm').submit()";
+            await _browser.EvaluateScriptAsync(script2);
         }
 
         private async Task UploadImportacaoPedido()

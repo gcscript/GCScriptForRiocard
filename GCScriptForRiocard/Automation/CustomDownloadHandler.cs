@@ -13,9 +13,12 @@ namespace GCScriptForRiocard.Automation
 
         private DownloadSettings _downloadSettings;
 
-        public CustomDownloadHandler(DownloadSettings downloadSettings)
+        private Label _percentLabel;
+
+        public CustomDownloadHandler(DownloadSettings downloadSettings, Label percentLabel)
         {
             _downloadSettings = downloadSettings;
+            _percentLabel = percentLabel;
         }
 
         public bool CanDownload(IWebBrowser chromiumWebBrowser, IBrowser browser, string url, string requestMethod)
@@ -48,6 +51,18 @@ namespace GCScriptForRiocard.Automation
             }
         }
 
+        //protected override void OnLoadingProgressChange(
+        //            IWebBrowser chromiumWebBrowser,
+        //            IBrowser browser,
+        //            double progress)
+        //{
+        //    _bar.Invoke(new Action(() =>
+        //    {
+
+        //        _bar.Value = (int)progress;
+        //    }));
+        //}
+
         public void OnDownloadUpdated(IWebBrowser chromiumWebBrowser, IBrowser browser, DownloadItem downloadItem, IDownloadItemCallback callback)
         {
             OnDownloadUpdatedFired?.Invoke(this, downloadItem);
@@ -58,7 +73,10 @@ namespace GCScriptForRiocard.Automation
                 if (downloadItem.IsInProgress && downloadItem.PercentComplete != 0)
                 {
                     //GCScriptForRiocard.Settings.percentLabel.Text = $"{downloadItem.PercentComplete}%";
-                    Console.WriteLine($"Current Download Speed: {downloadItem.CurrentSpeed} bytes ({downloadItem.PercentComplete}%)");
+
+                    _percentLabel.Invoke(new Action(() => { _percentLabel.Text = $"{downloadItem.PercentComplete}%"; }));
+
+                    //Console.WriteLine($"Current Download Speed: {downloadItem.CurrentSpeed} bytes ({downloadItem.PercentComplete}%)");
                 }
 
                 if (downloadItem.IsComplete)

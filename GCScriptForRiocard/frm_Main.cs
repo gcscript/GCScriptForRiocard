@@ -25,9 +25,9 @@ namespace RiocardTools
         }
         private void frm_Main_Load(object sender, EventArgs e)
         {
-            pnl_SideBar.Dock = DockStyle.Left;
-            pnl_SideBar.Location = new Point(0, 30);
-            pnl_SideBar.Size = new Size(800, 884);
+            //pnl_SideBar.Dock = DockStyle.Left;
+            //pnl_SideBar.Location = new Point(0, 30);
+            //pnl_SideBar.Size = new Size(800, 884);
 
             tsmi_Browser_Login.Image = icons.Properties.Resources.icons8_login_48px;
             tsmi_Browser_Home.Image = icons.Properties.Resources.icons8_home_48px;
@@ -410,8 +410,9 @@ namespace RiocardTools
 
 
                     //string script = "(function(){let table=document.querySelector('#listUsuariosTable');let rows=table.querySelectorAll('tr');let data=[];for(let i=1;i<rows.length;i++){let row=rows[i];let cols=row.querySelectorAll('td');let colsData=[];for(let j=0;j<cols.length;j++){let col=cols[j];colsData.push(col.innerText)}data.push(colsData)}return JSON.stringify(data)})();";
-                    string script = "(function(){let table=document.querySelector('#listUsuariosTable');let rows=table.querySelectorAll('tr');let data=[];for(let i=1;i<rows.length;i++){let row=rows[i];let cols=row.querySelectorAll('td');let colsData=[];for(let j=0;j<cols.length;j++){let col=cols[j];colsData.push(col.innerText)}data.push(colsData)}return data})();";
-                    await Task.Delay(300);
+                    await Task.Delay(Settings.searchDelay);
+                    
+                    string script = "!function(){let e=document.querySelector('#listUsuariosTable').querySelectorAll('tr'),t=[];for(let r=1;r<e.length;r++){let n=e[r].querySelectorAll('td');t.push({Matricula:n[0].innerText,Nome:n[1].innerText,Cpf:n[2].innerText,Status:n[3].innerText,NrDoCartao:n[4].innerText,StatusBu:n[5].innerText,Pir:n[6].innerText})}JSON.stringify(t)}();";
                     JavascriptResponse response = await wbs_Browser.EvaluateScriptAsync(script);
 
                     if (!response.Success)
@@ -431,7 +432,7 @@ namespace RiocardTools
                             item.SubItems[7].Text = "ERROR: 263356";
                         }
 
-                        item.SubItems[8].Text = DateTime.Now.ToString(); // DATE
+                        item.SubItems[8].Text = DateTime.Now.ToString("g"); // DATE
 
                         continue;
                     }
